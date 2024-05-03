@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>API_KEY</key>
+	<string>AIzaSyDYSGI4DHX0JWRfawp9ABYG6xv2Nc19DME</string>
+	<key>GCM_SENDER_ID</key>
+	<string>864696665420</string>
+	<key>PLIST_VERSION</key>
+	<string>1</string>
+	<key>BUNDLE_ID</key>
+	<string>com.example.yhma23-ios-project2</string>
+	<key>PROJECT_ID</key>
+	<string>yhma23-ios-project2</string>
+	<key>STORAGE_BUCKET</key>
+	<string>yhma23-ios-project2.appspot.com</string>
+	<key>IS_ADS_ENABLED</key>
+	<false></false>
+	<key>IS_ANALYTICS_ENABLED</key>
+	<false></false>
+	<key>IS_APPINVITE_ENABLED</key>
+	<true></true>
+	<key>IS_GCM_ENABLED</key>
+	<true></true>
+	<key>IS_SIGNIN_ENABLED</key>
+	<true></true>
+	<key>GOOGLE_APP_ID</key>
+	<string>1:864696665420:ios:d7cc8813c4ec251c387be9</string>
+</dict>
+</plist>
