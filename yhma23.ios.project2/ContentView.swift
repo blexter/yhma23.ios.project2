@@ -41,16 +41,21 @@ struct ContentView: View {
                     Text("Add")
                 }
                 
-                .alert("Lägg till", isPresented: $showingAddAlert) {
-                    TextField("Lägg till", text: $newHabit)
+                .alert("Add new habit", isPresented: $showingAddAlert) {
+                    TextField("Habit", text: $newHabit)
                     Button("Add", action: {
                         habitViewModel.saveHabit(ToDB: newHabit)
                         newHabit = ""
                     })
                 }
             }
+            .onAppear{
+                habitViewModel.listenToDB()
+            }
         }
+            
     }
+        
 }
 
 struct SignInView : View {
@@ -82,10 +87,10 @@ struct RowView : View {
             Button(action: {
                 viewModel.done(habit : &habit)
             }) {
-                if(viewModel.getDone(habit : habit)) {
-                    Image(systemName: "square")
-                } else {
+                if(viewModel.doneToday(habit : habit)) {
                     Image(systemName: "checkmark.square")
+                } else {
+                    Image(systemName: "square")
                 }
             }
         }
