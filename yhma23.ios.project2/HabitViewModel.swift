@@ -7,6 +7,8 @@
 
 import Foundation
 import Firebase
+import UIKit
+import UserNotifications
 
 class HabitViewModel : ObservableObject {
     let db = Firestore.firestore()
@@ -109,11 +111,50 @@ class HabitViewModel : ObservableObject {
         guard let user = auth.currentUser else {return}
         let habitRef = db.collection("users").document(user.uid).collection("habit")
         
-        let habit = Habit(habit : ToDB)
+        var habit = Habit(habit : ToDB)
+        
+        let dateString = "2024-05-05 10:40"
+        let dateFormater = DateFormatter()
+        dateFormater.dateFormat = "yyyy-MM-dd HH:mm"
+        if let customDate = dateFormater.date(from: dateString) {
+            habit.reminder = customDate
+            scheduleNotification(for: habit)
+        }
         do {
             try habitRef.addDocument(from: habit)
         } catch {
             print("Something went wrong when saving to DB")
+        }
+    }
+    
+    func requestNotificationAuthorization() {
+        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .badge, .sound]) { granted, error in
+            if let error = error {
+                print("Error requesting notification authorization: \(error.localizedDescription)")
+            }
+        }
+    }
+
+    // Schedule notification for a habit with a reminder
+    func scheduleNotification(for habit: Habit) {
+        guard let reminderDate = habit.reminder else { return }
+        
+        let content = UNMutableNotificationContent()
+        content.title = "Reminder: \(habit.habit)"
+        content.body = "Don't forget to work on your habit: \(habit.habit)"
+        content.sound = UNNotificationSound.default
+        
+        var dateComponents = Calendar.current.dateComponents([.hour, .minute], from: reminderDate)
+        dateComponents.day = Calendar.current.component(.day, from: Date())
+        
+        let trigger = UNCalendarNotificationTrigger(dateMatching: dateComponents, repeats: true)
+        
+        let request = UNNotificationRequest(identifier: habit.id ?? UUID().uuidString, content: content, trigger: trigger)
+        
+        UNUserNotificationCenter.current().add(request) { error in
+            if let error = error {
+                print("Error scheduling notification: \(error.localizedDescription)")
+            }
         }
     }
 }

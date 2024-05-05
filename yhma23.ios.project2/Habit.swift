@@ -8,7 +8,7 @@
 import Foundation
 import FirebaseFirestoreSwift
 
-struct Habit : Codable, Identifiable {
+struct Habit : Codable, Identifiable, Equatable {
     @DocumentID var id : String?
     var habit : String
     var done : [Date] = []

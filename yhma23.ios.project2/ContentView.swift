@@ -11,6 +11,7 @@ import Firebase
 struct ContentView: View {
     
     @State var showingAddAlert = false
+    @State var showStatistics = false
     @State var newHabit = ""
     @State var signedIn = false
     
@@ -20,40 +21,81 @@ struct ContentView: View {
         if !signedIn {
             SignInView(signedIn : $signedIn)
         } else {
-            VStack {
-                List {
-                    ForEach(habitViewModel.habits.indices, id: \.self) { index in
-                        RowView(habit: $habitViewModel.habits[index], viewModel : habitViewModel)
-                    }
-                    .onDelete() { indexSet in
-                        for index in indexSet {
-                            habitViewModel.remove(index:index)
+            ZStack {
+                VStack {
+                    List {
+                        ForEach(habitViewModel.habits.indices, id: \.self) { index in
+                            RowView(habit: $habitViewModel.habits[index], viewModel : habitViewModel)
+                        }
+                        .onDelete() { indexSet in
+                            for index in indexSet {
+                                habitViewModel.remove(index:index)
+                            }
                         }
                     }
+                    
+                    
+                    HStack {
+                        Button(action : {
+                            showingAddAlert = true
+                        }) {
+                            Text("Add")
+                        }
+                        
+                        .alert("Add new habit", isPresented: $showingAddAlert) {
+                            TextField("Habit", text: $newHabit)
+                            Button("Add", action: {
+                                if newHabit != "" {
+                                    habitViewModel.saveHabit(ToDB: newHabit)
+                                    newHabit = ""
+                                }
+                            })
+                        }
+                        
+                        Spacer()
+                        Button(action : {
+                            showStatistics.toggle()
+                        }) {
+                            Text("Statistics")
+                        }
+                    }
+                    .padding()
                 }
-                
-            }
-            Spacer()
-            VStack{
-                Button(action : {
-                    showingAddAlert = true
-                }) {
-                    Text("Add")
+                    if showStatistics {
+                        Color.white.opacity(1).edgesIgnoringSafeArea(/*@START_MENU_TOKEN@*/.all/*@END_MENU_TOKEN@*/)
+                        StatisticView(isPresented: $showStatistics).frame(maxWidth: /*@START_MENU_TOKEN@*/.infinity/*@END_MENU_TOKEN@*/, maxHeight: .infinity)
+                    }
                 }
-                
-                .alert("Add new habit", isPresented: $showingAddAlert) {
-                    TextField("Habit", text: $newHabit)
-                    Button("Add", action: {
-                        habitViewModel.saveHabit(ToDB: newHabit)
-                        newHabit = ""
-                    })
+            
+                .onAppear{
+                    habitViewModel.listenToDB()
+                    habitViewModel.requestNotificationAuthorization()
                 }
-            }
-            .onAppear{
-                habitViewModel.listenToDB()
-            }
+                .environmentObject(habitViewModel)
         }
             
+    }
+        
+}
+
+struct StatisticView : View {
+    @Binding var isPresented : Bool
+    @EnvironmentObject var viewModel : HabitViewModel
+    
+    var body: some View {
+        NavigationView {
+            VStack {
+                List {
+                    ForEach(viewModel.habits) { habit in
+                        RowViewStatistics(habit: habit, viewModel: viewModel)
+                    }
+                }
+            }
+            .navigationBarItems(leading: Button("Back") {
+                //presentationMode.wrappedValue.dismiss()
+                isPresented = false
+            })
+        }
     }
         
 }
@@ -94,6 +136,30 @@ struct RowView : View {
                 }
             }
         }
+    }
+}
+
+struct RowViewStatistics : View {
+    let habit : Habit
+    let viewModel : HabitViewModel
+    
+    var body : some View {
+        VStack(alignment: .leading) {
+            HStack {Text(habit.habit).font(.headline)
+                Spacer()
+                Text("\(habit.streak) times in row!")
+                    .padding()
+            }
+        
+        if !habit.done.isEmpty {
+            ForEach(habit.done, id: \.self) { doneDate in
+                Text(DateFormatter.localizedString(from: doneDate, dateStyle: .medium, timeStyle: .none))
+            }
+        } else {
+            Text("No dates recorded - come on! Lets start!")
+        }
+        }
+        //.padding()
     }
 }
 
