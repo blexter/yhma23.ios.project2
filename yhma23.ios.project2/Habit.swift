@@ -13,5 +13,5 @@ struct Habit : Codable, Identifiable, Equatable {
     var habit : String
     var done : [Date] = []
     var streak : Int = 0
-    var reminder : Date? = nil
+    var reminderId : UUID = UUID()
 }

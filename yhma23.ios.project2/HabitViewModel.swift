@@ -17,10 +17,34 @@ class HabitViewModel : ObservableObject {
     
     
     @Published var habits = [Habit]()
+    @Published var habitsLoaded = false
+    
+    
+    
+    func resetStreak (habit : inout Habit) {
+        
+        if !doneYesterday(habit: habit) && !doneToday(habit: habit) {
+            habit.streak = 0
+            guard let user = auth.currentUser,
+                  let habitId = habit.id
+                    
+            else {return}
+            let habitRef = db.collection("users").document(user.uid).collection("habit").document(habitId)
+            
+            habitRef.updateData(["streak" : habit.streak]) { error in
+                if let error = error {
+                    print("error \(error)")
+                }
+            }
+        } else {
+            print("nothing to reset \(doneYesterday(habit: habit))")
+        }
+        
+    }
     
     func done(habit : inout Habit) {
         if doneToday(habit: habit) {
-        
+            
         } else {
             
             let date = Date()
@@ -33,23 +57,31 @@ class HabitViewModel : ObservableObject {
             
             let habitRef = db.collection("users").document(user.uid).collection("habit").document(habitId)
             
-            habitRef.updateData(["done" : FieldValue.arrayUnion([date])]) { error in
+            habitRef.updateData(["done" : FieldValue.arrayUnion([date]), "streak" : habit.streak]) { error in
                 if let error = error {
                     print("error \(error)")
-                } else {
-                    print("all good!")
-                }
-            }
-            let newStreakValue = habit.streak
-            habitRef.updateData(["streak" : newStreakValue]) { error in
-                if let error = error {
-                    print("error \(error)")
-                } else {
-                    print("all good!")
                 }
             }
             
         }
+    }
+    
+    func doneYesterday(habit : Habit) -> Bool {
+        let today = Date()
+        var calendar = Calendar.current
+        
+        if let yesterday = calendar.date(byAdding : .day, value: -1, to: today){
+            
+            let date = returnDateOnly(date: yesterday)
+            print("\(date)")
+            for doneDate in habit.done {
+                if returnDateOnly(date: doneDate) == date {
+                    return true
+                }
+            }
+            return false
+        }
+        return false
     }
     
     func returnDateOnly(date : Date) -> DateComponents {
@@ -107,18 +139,19 @@ class HabitViewModel : ObservableObject {
         }
     }
     
-    func saveHabit(ToDB: String) {
+    func saveHabit(ToDB: String, notificationTime : String) {
         guard let user = auth.currentUser else {return}
         let habitRef = db.collection("users").document(user.uid).collection("habit")
         
-        var habit = Habit(habit : ToDB)
+        let habit = Habit(habit : ToDB)
         
-        let dateString = "2024-05-05 10:40"
+        var dateCom = DateComponents()
+        dateCom.minute = 5
+        
         let dateFormater = DateFormatter()
-        dateFormater.dateFormat = "yyyy-MM-dd HH:mm"
-        if let customDate = dateFormater.date(from: dateString) {
-            habit.reminder = customDate
-            scheduleNotification(for: habit)
+        dateFormater.dateFormat = "HH:mm"
+        if let customDate = dateFormater.date(from: notificationTime) {
+            scheduleOrUpdateNotification(for: habit, reminderTime: customDate, update: false)
         }
         do {
             try habitRef.addDocument(from: habit)
@@ -134,27 +167,80 @@ class HabitViewModel : ObservableObject {
             }
         }
     }
-
-    // Schedule notification for a habit with a reminder
-    func scheduleNotification(for habit: Habit) {
-        guard let reminderDate = habit.reminder else { return }
+    
+    func scheduleOrUpdateNotification(for habit: Habit, reminderTime : Date, update : Bool) {
         
         let content = UNMutableNotificationContent()
         content.title = "Reminder: \(habit.habit)"
         content.body = "Don't forget to work on your habit: \(habit.habit)"
         content.sound = UNNotificationSound.default
         
-        var dateComponents = Calendar.current.dateComponents([.hour, .minute], from: reminderDate)
-        dateComponents.day = Calendar.current.component(.day, from: Date())
+        var dateComponents = Calendar.current.dateComponents([.hour, .minute], from: reminderTime)
+        dateComponents.second = 0
         
         let trigger = UNCalendarNotificationTrigger(dateMatching: dateComponents, repeats: true)
         
-        let request = UNNotificationRequest(identifier: habit.id ?? UUID().uuidString, content: content, trigger: trigger)
+        let request = UNNotificationRequest(identifier: habit.reminderId.uuidString, content: content, trigger: trigger)
         
         UNUserNotificationCenter.current().add(request) { error in
             if let error = error {
                 print("Error scheduling notification: \(error.localizedDescription)")
+            } else {
+                print("Scheduled notification for habit: \(habit.habit), ID: \(habit.reminderId.uuidString)")
             }
+        }
+    }
+    
+    func removeNotification(for habitID : String) { //Not in use ATM
+        UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: [habitID])
+    }
+    
+    func debugRemoveALLNotifications() { //For debuging
+        UNUserNotificationCenter.current().removeAllPendingNotificationRequests()
+    }
+    
+    func updateNotification(for habitID: String, newReminderTime: Date) { //Not in use ATM
+        removeNotification(for : habitID)
+        if let habit = habits.first(where: { $0.id == habitID}) {
+            scheduleOrUpdateNotification(for: habit, reminderTime: newReminderTime, update : true)
+        }
+    }
+    
+    
+    
+    func checkNextNotificationTime(for habit: Habit) {  //For debuging of notifications
+        
+        UNUserNotificationCenter.current().getPendingNotificationRequests { requests in
+            for req in requests {
+                if let trigger = req.trigger {
+                    print("Trigger for \(req.identifier): \(trigger)")
+                } else {
+                    print("No trigger found for \(req.identifier)")
+                }
+            }
+            if let request = requests.first(where: { $0.identifier == habit.reminderId.uuidString }) {
+                if let trigger = request.trigger as? UNCalendarNotificationTrigger {
+                    if let nextTriggerDate = Calendar.current.date(byAdding: .day, value: 1, to : trigger.nextTriggerDate() ?? Date()) {
+                        print("Next notification is: \(nextTriggerDate)")
+                        DispatchQueue.main.async {
+                            
+                            
+                            let alert = UIAlertController(title: "Next notification", message: "Next notification is: \(nextTriggerDate)", preferredStyle: .alert)
+                            alert.addAction(UIAlertAction(title: "OK", style: .default))
+                            let window = UIApplication.shared.windows.first { $0.isKeyWindow }
+                            UIApplication.shared.windows.first?.rootViewController?.present(alert, animated: true)
+                        }
+                    } else {
+                        print("Failed to calculate teh next time")
+                    }
+                } else {
+                    print("unsuported trigger")
+                }
+            } else {
+                print("no pending notifications found")
+            }
+            
+            
         }
     }
 }
